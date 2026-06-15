@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Weather Pipeline — AWS</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --accent: #f97316;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+    .card {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 2rem;
+      width: min(420px, 90vw);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+    h1 {
+      font-size: 0.95rem;
+      color: var(--muted);
+      margin: 0 0 1.5rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .metric {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.6rem 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .metric:last-child { border-bottom: none; }
+    .metric .label { color: var(--muted); }
+    .metric .value { font-weight: 600; color: var(--accent); }
+    .timestamp {
+      margin-top: 1rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+      text-align: right;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Paris — Live Weather (AWS pipeline)</h1>
+    <div id="metrics">Loading…</div>
+    <div class="timestamp" id="timestamp"></div>
+  </div>
+
+  <script>
+    // TODO: replace with your API Gateway endpoint, e.g.
+    // https://YOUR_API_ID.execute-api.eu-west-3.amazonaws.com/latest
+    const API_URL = "https://example.invalid/latest";
+
+    async function load() {
+      try {
+        const res = await fetch(API_URL);
+        const data = await res.json();
+
+        document.getElementById("metrics").innerHTML = `
+          <div class="metric"><span class="label">Temperature</span><span class="value">${data.temperature_c} °C</span></div>
+          <div class="metric"><span class="label">Wind speed</span><span class="value">${data.wind_speed_kmh} km/h</span></div>
+          <div class="metric"><span class="label">Humidity</span><span class="value">${data.humidity_pct}%</span></div>
+        `;
+        document.getElementById("timestamp").textContent =
+          `Last updated: ${data.ingested_at}`;
+      } catch (err) {
+        document.getElementById("metrics").textContent =
+          "Unable to load data — set API_URL in index.html.";
+        console.error(err);
+      }
+    }
+
+    load();
+  </script>
+</body>
+</html>

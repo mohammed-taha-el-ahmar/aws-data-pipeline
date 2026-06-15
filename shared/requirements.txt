@@ -1,0 +1,3 @@
+# Intentionally empty: ingest.py / transform.py use only the standard library
+# so the same code drops into Lambda / Cloud Functions / Azure Functions
+# without a custom deployment package.
