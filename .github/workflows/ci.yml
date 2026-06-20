@@ -35,6 +35,11 @@ jobs:
       - name: Ruff — format check
         run: uv run ruff format --check .
 
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.7"
+
       - name: Syntax-check Terraform files
         run: |
           cd terraform
