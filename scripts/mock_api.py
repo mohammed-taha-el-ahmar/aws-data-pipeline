@@ -77,8 +77,8 @@ class MockHandler(http.server.BaseHTTPRequestHandler):
 if __name__ == "__main__":
     server = http.server.HTTPServer(("", PORT), MockHandler)
     print(f"Mock server running — open http://localhost:{PORT} in your browser.")
-    print(f"  GET /        → frontend/index.html (API URL auto-replaced)")
-    print(f"  GET /latest  → mock weather JSON")
+    print("  GET /        → frontend/index.html (API URL auto-replaced)")
+    print("  GET /latest  → mock weather JSON")
     print("Press Ctrl-C to stop.")
     try:
         server.serve_forever()
