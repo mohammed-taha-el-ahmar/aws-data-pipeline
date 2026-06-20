@@ -9,7 +9,7 @@ step.
 
 import json
 import urllib.request
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 # Example data source: Open-Meteo (no API key required), current weather
 # for Paris. Replace with your chosen API.
@@ -29,7 +29,7 @@ def fetch_data(api_url: str = DEFAULT_API_URL) -> dict:
 def to_raw_record(payload: dict) -> dict:
     """Wrap the raw payload with ingestion metadata before landing it."""
     return {
-        "ingested_at": datetime.now(timezone.utc).isoformat(),
+        "ingested_at": datetime.now(UTC).isoformat(),
         "source": "open-meteo",
         "payload": payload,
     }
@@ -37,10 +37,9 @@ def to_raw_record(payload: dict) -> dict:
 
 def raw_object_key(prefix: str = "raw") -> str:
     """Date-partitioned key for the landing zone."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return (
-        f"{prefix}/year={now.year}/month={now.month:02d}/day={now.day:02d}/"
-        f"{now.isoformat()}.json"
+        f"{prefix}/year={now.year}/month={now.month:02d}/day={now.day:02d}/{now.isoformat()}.json"
     )
 
 
