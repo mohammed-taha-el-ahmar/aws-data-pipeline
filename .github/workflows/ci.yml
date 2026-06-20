@@ -204,6 +204,7 @@ jobs:
           AWS_SECRET_ACCESS_KEY: test
           AWS_DEFAULT_REGION: eu-west-3
           LOCALSTACK_ENDPOINT: http://localhost:4566
+          DATA_LAKE_BUCKET: data-pipeline-local
 
       - name: Run integration tests
         run: |
@@ -213,3 +214,4 @@ jobs:
           AWS_SECRET_ACCESS_KEY: test
           AWS_DEFAULT_REGION: eu-west-3
           LOCALSTACK_ENDPOINT: http://localhost:4566
+          DATA_LAKE_BUCKET: data-pipeline-local

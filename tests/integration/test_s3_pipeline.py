@@ -58,7 +58,13 @@ def bucket(s3):
 
 @pytest.fixture()
 def handler(monkeypatch, s3):
-    """Patch the handler's module-level client to point at LocalStack."""
+    """Patch the handler's module-level client and bucket to point at LocalStack."""
+    import sys
+
+    # Must set env var BEFORE importing — handler.py reads it at module level
+    monkeypatch.setenv("DATA_LAKE_BUCKET", BUCKET)
+    sys.modules.pop("lambda_ingest.handler", None)
+
     import lambda_ingest.handler as m
 
     monkeypatch.setattr(m, "s3", s3)
