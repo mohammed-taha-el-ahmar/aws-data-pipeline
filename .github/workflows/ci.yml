@@ -157,8 +157,9 @@ jobs:
         options: >-
           --health-cmd "curl -sf http://localhost:4566/_localstack/health"
           --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
+          --health-timeout 10s
+          --health-retries 20
+          --health-start-period 20s
 
     steps:
       - uses: actions/checkout@v4
@@ -174,16 +175,18 @@ jobs:
       - name: Wait for LocalStack
         run: |
           echo "Waiting for LocalStack to be ready..."
-          for i in $(seq 1 20); do
+          for i in $(seq 1 30); do
             STATUS=$(curl -sf http://localhost:4566/_localstack/health \
                      | python3 -c "import sys,json; h=json.load(sys.stdin); print(h.get('services',{}).get('s3',''))" 2>/dev/null || echo "")
             if [ "$STATUS" = "available" ] || [ "$STATUS" = "running" ]; then
               echo "✅ LocalStack is ready (s3=$STATUS)"
-              break
+              exit 0
             fi
-            echo "  attempt $i: s3=$STATUS — retrying in 3s"
+            echo "  attempt $i/30: s3=${STATUS:-unreachable} — retrying in 3s"
             sleep 3
           done
+          echo "❌ LocalStack did not become ready in time"
+          exit 1
 
       - name: Seed S3 bucket
         run: |
