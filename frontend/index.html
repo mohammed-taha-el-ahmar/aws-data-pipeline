@@ -62,14 +62,22 @@
   </div>
 
   <script>
-    // TODO: replace with your API Gateway endpoint, e.g.
-    // https://YOUR_API_ID.execute-api.eu-west-3.amazonaws.com/latest
+    // API_URL is replaced at deploy time by Terraform (terraform/frontend.tf).
+    // To test locally: uv run python scripts/mock_api.py  then open this file.
+    // To find the deployed URL: cd terraform && terraform output api_gateway_url
     const API_URL = "https://example.invalid/latest";
 
     async function load() {
       try {
         const res = await fetch(API_URL);
         const data = await res.json();
+
+        if (!res.ok) {
+          document.getElementById("metrics").innerHTML =
+            `<div class="metric"><span class="label" style="color:var(--accent)">${data.error ?? "Error"}</span></div>`;
+          if (data.detail) console.error(data.detail);
+          return;
+        }
 
         document.getElementById("metrics").innerHTML = `
           <div class="metric"><span class="label">Temperature</span><span class="value">${data.temperature_c} °C</span></div>
@@ -80,7 +88,7 @@
           `Last updated: ${data.ingested_at}`;
       } catch (err) {
         document.getElementById("metrics").textContent =
-          "Unable to load data — set API_URL in index.html.";
+          "Unable to reach the API — check that terraform apply has completed.";
         console.error(err);
       }
     }

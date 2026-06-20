@@ -2,7 +2,8 @@
 # Landing zone
 # ---------------------------------------------------------------------------
 resource "aws_s3_bucket" "data_lake" {
-  bucket = "${var.project_name}-data-lake-${data.aws_caller_identity.current.account_id}"
+  bucket        = "${var.project_name}-data-lake-${data.aws_caller_identity.current.account_id}"
+  force_destroy = true
 }
 
 # ---------------------------------------------------------------------------
@@ -297,20 +298,14 @@ resource "aws_redshiftserverless_namespace" "main" {
 resource "aws_redshiftserverless_workgroup" "main" {
   namespace_name = aws_redshiftserverless_namespace.main.namespace_name
   workgroup_name = "${var.project_name}-wg"
-  base_capacity  = 8 # smallest billable unit (RPUs)
+  base_capacity  = 32 # smallest billable unit (RPUs)
 }
 
-# TODO (one-time, run against Redshift via Query Editor v2 or the Data API):
+# One-time SQL — run after the first terraform apply + first Glue workflow run.
+# Terraform prints the exact statement: terraform output spectrum_schema_sql
 #
+# Run it in Redshift Query Editor v2 (connect to the workgroup, database=dev):
 #   CREATE EXTERNAL SCHEMA spectrum
 #   FROM DATA CATALOG
-#   DATABASE '<aws_glue_catalog_database.lake.name>'
-#   IAM_ROLE '<aws_iam_role.redshift_spectrum.arn>';
-#
-#   SELECT * FROM spectrum.processed LIMIT 10;
-#
-# (table name = whatever the processed crawler names it, typically "processed")
-
-# TODO: aws_s3_bucket_website_configuration for frontend/, or CloudFront.
-# TODO: API Gateway HTTP API + Lambda (or Redshift Data API) to expose
-# "latest reading" as JSON for frontend/index.html to consume.
+#   DATABASE '<glue-database-name>'
+#   IAM_ROLE '<redshift-spectrum-role-arn>';

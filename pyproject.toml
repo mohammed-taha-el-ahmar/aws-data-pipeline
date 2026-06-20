@@ -1,0 +1,63 @@
+[project]
+name = "aws-data-pipeline"
+version = "0.1.0"
+description = "AWS Lambda + Glue + Redshift Spectrum weather data pipeline"
+requires-python = ">=3.12"
+# shared/ is pure stdlib — no runtime deps at the root level
+dependencies = []
+
+[dependency-groups]
+# Install when working on / testing the Lambda locally
+lambda = ["boto3"]
+# Install for local development and unit testing (moto, no Docker needed)
+dev = [
+    "boto3",
+    "pytest",
+    "pytest-cov",
+    "moto[s3]",           # AWS mock for unit-testing the Lambda handler
+    "ruff",               # linter + formatter (also used in CI)
+]
+# Install for LocalStack integration tests (requires Docker)
+localstack = [
+    "boto3",
+    "pytest",
+    "awscli-local",       # `awslocal` CLI wrapper for LocalStack
+    "requests",           # used by conftest to health-check LocalStack
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts   = "-v --tb=short"
+markers   = [
+    "unit: pure unit test, no external dependencies",
+    "integration: requires LocalStack — docker compose -f docker-compose.localstack.yml up -d",
+    "smoke: critical-path smoke tests, run against LocalStack in CI",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+exclude = [
+    "lambda_ingest/build",
+    "lambda_query/build",
+    ".venv",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+]
+ignore = [
+    "E501",  # line too long — ruff format handles this
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]  # allow assert in tests
+
+[tool.uv]
+# This is a scripts-only project, not a publishable package
+package = false

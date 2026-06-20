@@ -1,1 +1,16 @@
+# Copy this file to terraform.tfvars (gitignored) and edit the values.
+#   cp terraform.tfvars.example terraform.tfvars
+
+# AWS region — Redshift Serverless is not available in all regions.
+# Confirmed working: us-east-1, us-west-2, eu-west-1, eu-west-2, ap-southeast-1
+# eu-west-3 (Paris) works but verify your account has Redshift Serverless enabled.
+aws_region = "eu-west-3"
+
+# Prefix for all AWS resource names (S3 bucket, Lambda, Glue, Redshift, IAM roles).
+# Use lowercase letters, numbers and hyphens only (max 20 chars).
+project_name = "data-pipeline"
+
+# Redshift Serverless admin credentials.
+# Password rules: 8–64 chars, at least one uppercase, one lowercase, one digit.
+redshift_admin_username = "admin"
 redshift_admin_password = "ChangeMe123!"

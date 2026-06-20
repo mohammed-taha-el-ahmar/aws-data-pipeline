@@ -5,6 +5,11 @@
 *.tfvars
 !*.tfvars.example
 
+# Environment variables — real credentials
+.env
+!.env.example
+!.env.localstack
+
 # Python
 __pycache__/
 *.pyc
@@ -13,6 +18,13 @@ __pycache__/
 # Build artifacts
 **/build/
 *.zip
+
+# Test / lint cache
+.pytest_cache/
+.ruff_cache/
+coverage.xml
+.coverage
+htmlcov/
 
 # Editor / OS
 .vscode/

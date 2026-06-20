@@ -1,0 +1,20 @@
+services:
+  localstack:
+    image: localstack/localstack:latest
+    ports:
+      - "4566:4566"       # LocalStack gateway (all services)
+    environment:
+      # Community services used by this project
+      - SERVICES=s3,lambda,events,iam,logs
+      - AWS_DEFAULT_REGION=eu-west-3
+      # Uncomment and set to enable Pro services (Glue, Redshift)
+      # - LOCALSTACK_AUTH_TOKEN=${LOCALSTACK_AUTH_TOKEN}
+      - DEBUG=0
+    volumes:
+      # Init scripts run automatically when LocalStack is ready
+      - ./localstack/init:/etc/localstack/init/ready.d
+      - localstack_data:/var/lib/localstack
+      - /var/run/docker.sock:/var/run/docker.sock
+
+volumes:
+  localstack_data:

@@ -1,0 +1,207 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────
+  # Job 1: Lint + static checks
+  # ─────────────────────────────────────────────────────────────────────────
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Sync dev deps
+        run: uv sync --group dev
+
+      - name: Ruff — lint
+        run: uv run ruff check .
+
+      - name: Ruff — format check
+        run: uv run ruff format --check .
+
+      - name: Syntax-check Terraform files
+        run: |
+          cd terraform
+          terraform fmt -check -recursive
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Job 2: Unit tests + coverage
+  # ─────────────────────────────────────────────────────────────────────────
+  unit:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    needs: lint
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Sync dev deps
+        run: uv sync --group dev
+
+      - name: Run unit tests
+        run: |
+          uv run pytest tests/unit -v \
+            --cov=shared \
+            --cov=lambda_ingest \
+            --cov=lambda_query \
+            --cov-report=term-missing \
+            --cov-report=xml:coverage.xml \
+            --cov-fail-under=80
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Job 3: Build smoke test — verify build.sh produces a valid Lambda zip
+  # ─────────────────────────────────────────────────────────────────────────
+  build-smoke:
+    name: Build smoke test
+    runs-on: ubuntu-latest
+    needs: lint
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Run build.sh
+        run: |
+          chmod +x build.sh
+          ./build.sh
+
+      - name: Smoke — ingest zip exists and is non-empty
+        run: |
+          test -f lambda_ingest/build/ingest.zip
+          SIZE=$(stat -c%s lambda_ingest/build/ingest.zip)
+          echo "ingest.zip size: ${SIZE} bytes"
+          test "$SIZE" -gt 0
+
+      - name: Smoke — ingest zip contains required files
+        run: |
+          unzip -l lambda_ingest/build/ingest.zip | tee /tmp/ingest_contents.txt
+          grep -q "handler.py"          /tmp/ingest_contents.txt
+          grep -q "shared/ingest.py"    /tmp/ingest_contents.txt
+          grep -q "shared/transform.py" /tmp/ingest_contents.txt
+          echo "✅ All required files present in ingest.zip"
+
+      - name: Smoke — query zip exists and is non-empty
+        run: |
+          test -f lambda_query/build/query.zip
+          SIZE=$(stat -c%s lambda_query/build/query.zip)
+          echo "query.zip size: ${SIZE} bytes"
+          test "$SIZE" -gt 0
+
+      - name: Smoke — query zip contains required files
+        run: |
+          unzip -l lambda_query/build/query.zip | tee /tmp/query_contents.txt
+          grep -q "handler.py" /tmp/query_contents.txt
+          echo "✅ All required files present in query.zip"
+
+      - name: Upload Lambda zips
+        uses: actions/upload-artifact@v4
+        with:
+          name: lambda-zips
+          path: |
+            lambda_ingest/build/ingest.zip
+            lambda_query/build/query.zip
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Job 4: LocalStack smoke + integration tests
+  # ─────────────────────────────────────────────────────────────────────────
+  integration:
+    name: LocalStack integration
+    runs-on: ubuntu-latest
+    needs: [unit, build-smoke]
+
+    services:
+      localstack:
+        image: localstack/localstack:latest
+        ports:
+          - 4566:4566
+        env:
+          SERVICES: s3,lambda,events,iam,logs
+          AWS_DEFAULT_REGION: eu-west-3
+          DEBUG: 0
+        options: >-
+          --health-cmd "curl -sf http://localhost:4566/_localstack/health"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Sync dev + localstack deps
+        run: uv sync --group dev --group localstack
+
+      - name: Wait for LocalStack
+        run: |
+          echo "Waiting for LocalStack to be ready..."
+          for i in $(seq 1 20); do
+            STATUS=$(curl -sf http://localhost:4566/_localstack/health \
+                     | python3 -c "import sys,json; h=json.load(sys.stdin); print(h.get('services',{}).get('s3',''))" 2>/dev/null || echo "")
+            if [ "$STATUS" = "available" ] || [ "$STATUS" = "running" ]; then
+              echo "✅ LocalStack is ready (s3=$STATUS)"
+              break
+            fi
+            echo "  attempt $i: s3=$STATUS — retrying in 3s"
+            sleep 3
+          done
+
+      - name: Seed S3 bucket
+        run: |
+          awslocal s3 mb s3://data-pipeline-local --region eu-west-3 || true
+        env:
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          AWS_DEFAULT_REGION: eu-west-3
+
+      - name: Run smoke tests
+        run: |
+          uv run pytest tests/smoke -v -m smoke
+        env:
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          AWS_DEFAULT_REGION: eu-west-3
+          LOCALSTACK_ENDPOINT: http://localhost:4566
+
+      - name: Run integration tests
+        run: |
+          uv run pytest tests/integration -v
+        env:
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          AWS_DEFAULT_REGION: eu-west-3
+          LOCALSTACK_ENDPOINT: http://localhost:4566

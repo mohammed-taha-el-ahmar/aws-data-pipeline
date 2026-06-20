@@ -1,0 +1,2 @@
+# boto3 is bundled with the Python 3.12 Lambda runtime — no extra packages needed.
+# Add third-party deps here if you extend the handler.
